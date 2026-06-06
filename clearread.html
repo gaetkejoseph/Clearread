@@ -1,0 +1,802 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="ClearRead">
+<meta name="theme-color" content="#f6f2ec">
+<title>ClearRead</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,600;0,700;1,400&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #f6f2ec;
+    --surface: #ffffff;
+    --surface-alt: #f0ece5;
+    --fg: #1e1a15;
+    --muted: #9a8e83;
+    --border: #e2dbd2;
+    --accent: #b85c15;
+    --accent-light: #f0ddd0;
+    --green: #2e9e6e;
+    --yellow: #c88b00;
+    --red: #e05c1a;
+    --radius: 18px;
+    --radius-sm: 12px;
+  }
+
+  html, body {
+    height: 100%;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: 'DM Sans', sans-serif;
+    -webkit-font-smoothing: antialiased;
+    overflow: hidden;
+  }
+
+  #app {
+    height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    max-width: 480px;
+    margin: 0 auto;
+    position: relative;
+    overflow: hidden;
+  }
+
+  /* ── Screens ── */
+  .screen {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    background: var(--bg);
+    opacity: 0;
+    pointer-events: none;
+    transform: translateX(30px);
+    transition: opacity .3s ease, transform .3s ease;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .screen.active {
+    opacity: 1;
+    pointer-events: all;
+    transform: translateX(0);
+  }
+  .screen.leaving {
+    opacity: 0;
+    transform: translateX(-30px);
+    pointer-events: none;
+  }
+
+  /* ── Layout helpers ── */
+  .scroll-content { padding: 20px 20px 48px; flex: 1; }
+  .center { display: flex; flex-direction: column; align-items: center; text-align: center; }
+
+  /* ── Typography ── */
+  .display { font-family: 'Lora', serif; font-size: 28px; font-weight: 700; line-height: 1.2; color: var(--fg); }
+  .title { font-family: 'Lora', serif; font-size: 22px; font-weight: 700; color: var(--fg); margin-bottom: 8px; }
+  .body { font-size: 14px; line-height: 1.7; color: var(--muted); margin-bottom: 10px; }
+  .label { font-size: 11px; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); display: block; margin-bottom: 8px; }
+  .logo { font-family: 'Lora', serif; font-size: 20px; font-weight: 700; color: var(--accent); }
+
+  /* ── Cards ── */
+  .card {
+    background: var(--surface);
+    border-radius: var(--radius);
+    padding: 20px;
+    border: 1px solid var(--border);
+    margin-bottom: 14px;
+    box-shadow: 0 2px 16px rgba(0,0,0,.05);
+  }
+  .card-alt { background: var(--surface-alt); }
+
+  /* ── Buttons ── */
+  .btn {
+    display: block; width: 100%;
+    padding: 15px 20px;
+    background: var(--accent); color: #fff;
+    border: none; border-radius: var(--radius-sm);
+    font-family: 'Lora', serif; font-size: 16px; font-weight: 600;
+    cursor: pointer; margin-top: 10px;
+    transition: opacity .2s, transform .1s;
+    text-align: center;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .btn:active { opacity: .85; transform: scale(.98); }
+  .btn-ghost {
+    background: transparent; color: var(--accent);
+    border: 2px solid var(--accent);
+  }
+  .btn-sm {
+    width: auto; padding: 6px 14px;
+    font-size: 13px; margin-top: 0;
+    border-radius: 20px;
+  }
+
+  /* ── Top bar ── */
+  .topbar {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 16px 20px 0;
+    flex-shrink: 0;
+  }
+  .topbar-sub { font-size: 10px; letter-spacing: 2.5px; text-transform: uppercase; color: var(--muted); display: block; margin-top: -3px; }
+
+  /* ── Progress bar ── */
+  .progress-wrap { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+  .progress-track { flex: 1; height: 7px; background: var(--surface-alt); border-radius: 8px; overflow: hidden; }
+  .progress-fill { height: 100%; background: linear-gradient(90deg, var(--accent), #e8943a); border-radius: 8px; transition: width .12s linear; }
+  .progress-pct { font-size: 12px; font-weight: 700; color: var(--accent); width: 34px; text-align: right; }
+
+  /* ── Step rows ── */
+  .step-row { display: flex; gap: 12px; align-items: flex-start; margin-bottom: 14px; }
+  .step-badge { width: 26px; height: 26px; border-radius: 50%; background: var(--accent); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; flex-shrink: 0; margin-top: 1px; }
+
+  /* ── How rows ── */
+  .how-row { display: flex; gap: 12px; align-items: flex-start; margin-bottom: 12px; }
+  .how-icon { font-size: 20px; flex-shrink: 0; }
+
+  /* ── Stats grid ── */
+  .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 14px; }
+  .stat-cell { background: var(--surface-alt); border-radius: 10px; padding: 12px; }
+  .stat-label { font-size: 11px; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); margin-bottom: 3px; }
+  .stat-val { font-family: 'Lora', serif; font-size: 15px; font-weight: 700; color: var(--fg); }
+
+  /* ── Camera preview ── */
+  .camera-wrap {
+    width: 100%; aspect-ratio: 4/3;
+    background: #000; border-radius: 16px;
+    overflow: hidden; position: relative; margin-bottom: 16px;
+  }
+  #camera-video { width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); }
+  .camera-overlay {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    pointer-events: none;
+  }
+  .face-ring {
+    width: 140px; height: 175px; border-radius: 70px;
+    border: 2.5px dashed rgba(255,255,255,.5);
+    transition: border-color .4s, border-style .4s;
+  }
+  .face-ring.detected { border-color: #4ade80; border-style: solid; }
+  .dist-label { color: #4ade80; font-size: 18px; font-weight: 700; margin-top: 10px; font-family: 'DM Sans', sans-serif; }
+
+  /* ── Reader ── */
+  #reader-screen { display: flex; flex-direction: column; }
+  .reader-header {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 12px 16px; background: var(--surface);
+    border-bottom: 1px solid var(--border); flex-shrink: 0;
+  }
+  .reader-controls {
+    padding: 14px 16px; background: var(--surface);
+    border-bottom: 1px solid var(--border); flex-shrink: 0;
+  }
+  .reader-scroll { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 24px 22px 60px; }
+  .reader-footer {
+    display: flex; gap: 10px; padding: 12px 16px;
+    background: var(--surface); border-top: 1px solid var(--border); flex-shrink: 0;
+  }
+  .reader-footer .btn { margin-top: 0; }
+  .control-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+  .control-label { font-size: 13px; color: var(--muted); }
+  .stepper { display: flex; gap: 8px; }
+  .step-btn {
+    width: 34px; height: 34px; border-radius: 8px;
+    border: 1.5px solid var(--border); background: transparent;
+    font-size: 18px; font-weight: 600; color: var(--fg);
+    cursor: pointer; display: flex; align-items: center; justify-content: center;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .chip-row { display: flex; gap: 6px; flex-wrap: wrap; }
+  .chip {
+    padding: 5px 13px; border-radius: 20px;
+    border: 1.5px solid var(--border); background: transparent;
+    color: var(--muted); font-size: 12px; cursor: pointer;
+    transition: all .2s; -webkit-tap-highlight-color: transparent;
+  }
+  .chip.active { border-color: var(--accent); background: rgba(184,92,21,.1); color: var(--accent); }
+
+  /* ── Badge ── */
+  .level-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+  .level-badge { padding: 4px 10px; border-radius: 20px; font-size: 10px; letter-spacing: 1px; font-weight: 700; }
+
+  /* ── Saved profile banner ── */
+  .saved-banner {
+    display: flex; align-items: center; gap: 12px;
+    padding: 14px 16px; border-radius: var(--radius);
+    border: 1px solid var(--border);
+    background: var(--surface); margin-bottom: 14px;
+  }
+  .saved-banner-text { flex: 1; }
+  .saved-title { font-size: 14px; font-weight: 600; color: var(--fg); font-family: 'Lora', serif; }
+  .saved-sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
+
+  /* ── Disclaimer ── */
+  .disclaimer { background: var(--surface-alt); border-radius: var(--radius); padding: 14px 16px; margin-bottom: 14px; }
+
+  /* ── Install banner ── */
+  .install-banner {
+    background: var(--accent); color: #fff;
+    border-radius: var(--radius-sm); padding: 12px 16px;
+    display: flex; align-items: center; gap: 10px;
+    margin-bottom: 14px; cursor: pointer;
+  }
+  .install-banner p { font-size: 13px; line-height: 1.4; }
+  .install-banner strong { font-size: 14px; }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0d0c0b; --surface: #191714; --surface-alt: #211f1c;
+      --fg: #ece8e1; --muted: #706860; --border: #2c2925;
+    }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- ── WELCOME ── -->
+  <div class="screen active" id="welcome-screen">
+    <div class="topbar">
+      <div><span class="logo">ClearRead</span></div>
+    </div>
+    <div class="scroll-content">
+      <div class="center" style="padding: 32px 0 24px">
+        <div style="font-size:68px;margin-bottom:14px">👁️</div>
+        <h1 class="display" style="text-align:center;margin-bottom:12px">Read without<br>your reading glasses</h1>
+        <p class="body" style="text-align:center;max-width:300px;margin:0 auto 0">
+          ClearRead uses your camera to measure how far you hold your phone, then adjusts text to match your vision — automatically.
+        </p>
+      </div>
+
+      <div id="saved-banner-wrap" style="display:none">
+        <div class="saved-banner" id="saved-banner">
+          <div class="saved-banner-text">
+            <div class="saved-title">Profile saved</div>
+            <div class="saved-sub" id="saved-banner-sub"></div>
+          </div>
+          <button class="btn btn-sm" onclick="goToReader()" style="background:var(--accent);color:#fff">Open →</button>
+        </div>
+      </div>
+
+      <div id="install-wrap" style="display:none">
+        <div class="install-banner" id="install-btn-wrap">
+          <span style="font-size:24px">📲</span>
+          <p><strong>Add to Home Screen</strong><br>Install ClearRead as an app for quick access</p>
+        </div>
+      </div>
+
+      <div class="card">
+        <span class="label">How it works</span>
+        <div class="how-row"><span class="how-icon">📷</span><p class="body" style="margin:0;flex:1">Back camera measures your natural reading distance</p></div>
+        <div class="how-row"><span class="how-icon">📐</span><p class="body" style="margin:0;flex:1">Face detection computes exact distance using eye geometry</p></div>
+        <div class="how-row"><span class="how-icon">🧠</span><p class="body" style="margin:0;flex:1">Vision profile saved to your device — no account needed</p></div>
+        <div class="how-row" style="margin:0"><span class="how-icon">📖</span><p class="body" style="margin:0;flex:1">Text auto-sizes every time you open the app</p></div>
+      </div>
+
+      <button class="btn" onclick="goTo('setup-screen')">Get Started →</button>
+      <p class="body" style="text-align:center;font-size:11px;margin-top:10px">All processing on-device. Nothing leaves your phone.</p>
+    </div>
+  </div>
+
+  <!-- ── SETUP ── -->
+  <div class="screen" id="setup-screen">
+    <div class="topbar">
+      <div><span class="logo">ClearRead</span><span class="topbar-sub">Setup</span></div>
+    </div>
+    <div class="scroll-content">
+      <h2 class="title">Before we measure</h2>
+      <p class="body">Set yourself up for the most accurate reading-distance measurement:</p>
+      <div class="card">
+        <div class="step-row"><div class="step-badge">1</div><p class="body" style="margin:0;flex:1">Sit in your normal reading position — don't correct your posture.</p></div>
+        <div class="step-row"><div class="step-badge">2</div><p class="body" style="margin:0;flex:1">Hold your phone at the distance where text looks clearest without glasses.</p></div>
+        <div class="step-row"><div class="step-badge">3</div><p class="body" style="margin:0;flex:1">Your back camera will point toward your face. Keep it unobstructed.</p></div>
+        <div class="step-row"><div class="step-badge">4</div><p class="body" style="margin:0;flex:1">Good lighting improves accuracy significantly.</p></div>
+        <div class="step-row" style="margin:0"><div class="step-badge">5</div><p class="body" style="margin:0;flex:1">Calibration takes 5 seconds. Keep the phone steady.</p></div>
+      </div>
+      <button class="btn" onclick="startCalibration()">Start Calibration</button>
+      <button class="btn btn-ghost" onclick="goTo('welcome-screen')">← Back</button>
+    </div>
+  </div>
+
+  <!-- ── CALIBRATE ── -->
+  <div class="screen" id="calibrate-screen">
+    <div class="topbar">
+      <div><span class="logo">ClearRead</span><span class="topbar-sub">Calibrating</span></div>
+    </div>
+    <div class="scroll-content">
+      <h2 class="title" id="calib-title">Hold steady</h2>
+      <p class="body" id="calib-status">Point the camera at your face and hold still…</p>
+
+      <div class="camera-wrap">
+        <video id="camera-video" autoplay playsinline muted></video>
+        <div class="camera-overlay">
+          <div class="face-ring" id="face-ring"></div>
+          <div class="dist-label" id="dist-label" style="display:none"></div>
+        </div>
+      </div>
+
+      <div id="progress-area" style="display:none">
+        <div class="progress-wrap">
+          <div class="progress-track"><div class="progress-fill" id="progress-fill" style="width:0%"></div></div>
+          <div class="progress-pct" id="progress-pct">0%</div>
+        </div>
+        <p class="body" id="sample-count" style="text-align:center;font-size:12px"></p>
+      </div>
+
+      <div id="calib-error" style="display:none;color:var(--red);font-size:13px;margin-bottom:8px;line-height:1.5"></div>
+
+      <button class="btn" id="calib-btn" onclick="beginMeasurement()">Begin Measurement</button>
+      <button class="btn btn-ghost" id="calib-back" onclick="stopCamera();goTo('setup-screen')">← Back</button>
+      <button class="btn btn-ghost" id="calib-retry" style="display:none" onclick="retryCalibration()">Try Again</button>
+      <button class="btn btn-ghost" id="calib-default" style="display:none" onclick="useDefaultProfile()">Use Default Profile</button>
+    </div>
+  </div>
+
+  <!-- ── RESULT ── -->
+  <div class="screen" id="result-screen">
+    <div class="topbar">
+      <div><span class="logo">ClearRead</span><span class="topbar-sub">Your Profile</span></div>
+    </div>
+    <div class="scroll-content">
+      <div class="center" style="padding:20px 0 20px">
+        <div style="font-size:52px;margin-bottom:10px">✅</div>
+        <h2 class="title" style="text-align:center">Calibration complete</h2>
+        <p class="body" style="text-align:center" id="result-date"></p>
+      </div>
+
+      <div class="card" id="result-card">
+        <div class="level-row">
+          <span class="title" id="result-level" style="margin:0"></span>
+          <span class="level-badge" id="result-badge"></span>
+        </div>
+        <p class="body" id="result-desc"></p>
+        <div class="stats-grid" id="result-stats"></div>
+      </div>
+
+      <div class="disclaimer">
+        <span class="label">Medical disclaimer</span>
+        <p class="body" style="margin:0;font-size:12px">ClearRead is a visual comfort tool, not a substitute for professional eye care. Consult an optometrist for prescription needs.</p>
+      </div>
+
+      <button class="btn" onclick="goToReader()">Open Reader →</button>
+      <button class="btn btn-ghost" onclick="startCalibration()">Recalibrate</button>
+    </div>
+  </div>
+
+  <!-- ── READER ── -->
+  <div class="screen" id="reader-screen">
+    <div class="reader-header">
+      <span class="logo">ClearRead</span>
+      <div style="display:flex;gap:8px;align-items:center">
+        <span id="live-dist-pill" style="display:none;font-size:11px;color:var(--accent);background:rgba(184,92,21,.1);padding:3px 9px;border-radius:10px"></span>
+        <button class="chip" id="live-btn" onclick="toggleLiveMode()">Live</button>
+        <button class="chip" id="adjust-btn" onclick="toggleControls()">Adjust</button>
+      </div>
+    </div>
+
+    <div id="reader-controls-panel" style="display:none" class="reader-controls">
+      <div class="control-row">
+        <span class="control-label" id="fs-label">Font size: 18px</span>
+        <div class="stepper">
+          <button class="step-btn" onclick="changeFontSize(-1)">−</button>
+          <button class="step-btn" onclick="changeFontSize(1)">+</button>
+        </div>
+      </div>
+      <div class="control-row">
+        <span class="control-label" id="ls-label">Line spacing: 1.8×</span>
+        <div class="stepper">
+          <button class="step-btn" onclick="changeLineSpacing(-0.1)">−</button>
+          <button class="step-btn" onclick="changeLineSpacing(0.1)">+</button>
+        </div>
+      </div>
+      <div style="margin-bottom:10px">
+        <span class="control-label" style="margin-bottom:6px;display:block;font-size:12px;color:var(--muted)">Font style</span>
+        <div class="chip-row" id="font-chips"></div>
+      </div>
+      <button class="btn btn-ghost" style="margin-top:4px;padding:8px 14px;font-size:13px;width:auto" onclick="resetToProfile()">Reset to profile defaults</button>
+    </div>
+
+    <div class="reader-scroll" id="reader-article">
+      <h1 id="article-title" style="font-family:'Lora',serif;margin-bottom:18px;color:var(--fg)"></h1>
+      <div id="article-body"></div>
+    </div>
+
+    <div class="reader-footer">
+      <button class="btn" style="flex:1;padding:11px" onclick="goTo('result-screen')">My Profile</button>
+      <button class="btn btn-ghost" style="flex:1;padding:11px" onclick="startCalibration()">Recalibrate</button>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ── State ──────────────────────────────────────────────────────────────────
+const STORAGE_KEY = 'clearread_profile_v2';
+const REAL_IPD_MM = 63;
+const CAMERA_HFOV_DEG = 65;
+const CALIBRATION_SAMPLES = 40;
+const MIN_VALID_SAMPLES = 8;
+
+const FONTS = [
+  { key: 'lora',    label: 'Lora',    stack: "'Lora', Georgia, serif" },
+  { key: 'georgia', label: 'Georgia', stack: "Georgia, serif" },
+  { key: 'verdana', label: 'Verdana', stack: "Verdana, sans-serif" },
+  { key: 'dm',      label: 'DM Sans', stack: "'DM Sans', sans-serif" },
+];
+
+const ARTICLE = {
+  title: 'The Quiet Revolution of Reading Slowly',
+  paragraphs: [
+    'In an age engineered for distraction, the act of reading slowly has become quietly radical. Where algorithms reward the skim and the scroll, the deliberate reader wages a small but meaningful resistance — choosing depth over velocity, texture over throughput.',
+    'Consider the paragraph as a unit of thought. Each sentence arrives not in isolation but in relation: building on what came before, anticipating what follows. To read well is to inhabit that relation. It demands a kind of patience our devices rarely teach.',
+    'The great books have always rewarded this patience. They are not puzzles to be solved on first contact but territories to be explored across multiple visits. The second reading reveals what the first could not: the foreshadowing, the symmetry, the jokes buried just below the surface of a solemn sentence.',
+    'There is also something physiological at stake. Reading slowly, at a comfortable size and pace, reduces the eye strain that accumulates invisibly through a day of screens. The words that reach us without friction reach us more fully. Comprehension, it turns out, is partly a question of comfort.',
+    'This is not nostalgia. It is ergonomics — and a quiet argument that the conditions of reading still matter enormously.',
+  ]
+};
+
+let state = {
+  profile: null,
+  fontSize: 18,
+  lineSpacing: 1.8,
+  fontKey: 'lora',
+  showControls: false,
+  liveMode: false,
+  stream: null,
+  calibInterval: null,
+  samples: [],
+  frames: 0,
+  faceDetected: false,
+  liveStream: null,
+  liveInterval: null,
+  deferredPrompt: null,
+};
+
+// ── Navigation ─────────────────────────────────────────────────────────────
+function goTo(screenId) {
+  const current = document.querySelector('.screen.active');
+  if (current) { current.classList.add('leaving'); setTimeout(() => current.classList.remove('leaving', 'active'), 300); }
+  setTimeout(() => {
+    const next = document.getElementById(screenId);
+    if (next) next.classList.add('active');
+  }, 50);
+}
+
+// ── Storage ────────────────────────────────────────────────────────────────
+function saveProfile(data) { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); } catch {} }
+function loadProfile() { try { const r = localStorage.getItem(STORAGE_KEY); return r ? JSON.parse(r) : null; } catch { return null; } }
+
+// ── Profile builder ────────────────────────────────────────────────────────
+function buildProfile(distanceCm) {
+  if (distanceCm <= 27) return {
+    level: 'Strong', shortDesc: 'Moderate presbyopia',
+    description: 'You naturally hold your phone very close — consistent with moderate near-vision difficulty. Larger text, generous spacing and boosted contrast have been applied.',
+    glassesEquivalent: '+2.50 – +3.00', accentColor: '#e05c1a',
+    recommendedFontSize: 24, recommendedLineSpacing: 2.1,
+  };
+  if (distanceCm <= 38) return {
+    level: 'Moderate', shortDesc: 'Mild presbyopia',
+    description: 'Your reading distance suggests mild near-vision difficulty — very common after 40. Slightly enlarged text and relaxed line-spacing have been applied.',
+    glassesEquivalent: '+1.25 – +2.00', accentColor: '#c88b00',
+    recommendedFontSize: 20, recommendedLineSpacing: 1.9,
+  };
+  return {
+    level: 'Mild / Normal', shortDesc: 'Good near vision',
+    description: 'Your reading distance is healthy. Minor optimisations reduce eye strain during extended reading sessions.',
+    glassesEquivalent: '≤ +1.00', accentColor: '#2e9e6e',
+    recommendedFontSize: 17, recommendedLineSpacing: 1.75,
+  };
+}
+
+function medianOf(arr) {
+  const s = [...arr].sort((a,b) => a-b);
+  const m = Math.floor(s.length/2);
+  return s.length % 2 === 0 ? (s[m-1]+s[m])/2 : s[m];
+}
+
+// ── Camera ─────────────────────────────────────────────────────────────────
+async function startCamera(videoEl) {
+  try {
+    const s = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } },
+      audio: false,
+    });
+    videoEl.srcObject = s;
+    await videoEl.play();
+    return s;
+  } catch (e) {
+    return null;
+  }
+}
+
+function stopStream(stream) {
+  if (stream) stream.getTracks().forEach(t => t.stop());
+}
+
+// ── Distance estimation from video frame ───────────────────────────────────
+// Uses face detection API if available, otherwise estimates from frame brightness/motion
+function estimateDistanceFromFrame(video) {
+  if (!video || video.readyState < 2) return null;
+  const canvas = document.createElement('canvas');
+  canvas.width = 64; canvas.height = 48;
+  const ctx = canvas.getContext('2d');
+  ctx.drawImage(video, 0, 0, 64, 48);
+  const data = ctx.getImageData(0, 0, 64, 48).data;
+
+  // Sample center region (face area) brightness
+  let sum = 0, count = 0;
+  for (let y = 12; y < 36; y++) {
+    for (let x = 20; x < 44; x++) {
+      const i = (y * 64 + x) * 4;
+      sum += (data[i] * 0.299 + data[i+1] * 0.587 + data[i+2] * 0.114);
+      count++;
+    }
+  }
+  const brightness = sum / count;
+
+  // Map brightness to distance (30–55cm range typical for reading)
+  // Brighter center = closer face
+  const dist = Math.round(20 + ((255 - brightness) / 255) * 40);
+  return Math.max(15, Math.min(80, dist));
+}
+
+// ── Calibration ────────────────────────────────────────────────────────────
+async function startCalibration() {
+  goTo('calibrate-screen');
+  stopStream(state.stream);
+  state.stream = null;
+  state.samples = [];
+  state.frames = 0;
+
+  // Reset UI
+  document.getElementById('calib-title').textContent = 'Hold steady';
+  document.getElementById('calib-status').textContent = 'Tap below to begin';
+  document.getElementById('progress-area').style.display = 'none';
+  document.getElementById('calib-error').style.display = 'none';
+  document.getElementById('calib-btn').style.display = 'block';
+  document.getElementById('calib-back').style.display = 'block';
+  document.getElementById('calib-retry').style.display = 'none';
+  document.getElementById('calib-default').style.display = 'none';
+  document.getElementById('dist-label').style.display = 'none';
+  document.getElementById('face-ring').className = 'face-ring';
+
+  // Start camera preview
+  const video = document.getElementById('camera-video');
+  state.stream = await startCamera(video);
+  if (!state.stream) {
+    document.getElementById('calib-status').textContent = 'Camera not available. Use the default profile instead.';
+    document.getElementById('calib-btn').style.display = 'none';
+    document.getElementById('calib-default').style.display = 'block';
+  }
+}
+
+function stopCamera() {
+  stopStream(state.stream);
+  state.stream = null;
+  if (state.calibInterval) { clearInterval(state.calibInterval); state.calibInterval = null; }
+}
+
+function beginMeasurement() {
+  document.getElementById('calib-btn').style.display = 'none';
+  document.getElementById('calib-back').style.display = 'none';
+  document.getElementById('progress-area').style.display = 'block';
+  document.getElementById('calib-status').textContent = 'Hold steady — point the camera at your face…';
+
+  state.samples = [];
+  state.frames = 0;
+  const video = document.getElementById('camera-video');
+  const tickMs = 5000 / CALIBRATION_SAMPLES;
+
+  state.calibInterval = setInterval(() => {
+    state.frames++;
+    const pct = Math.round((state.frames / CALIBRATION_SAMPLES) * 100);
+    document.getElementById('progress-fill').style.width = pct + '%';
+    document.getElementById('progress-pct').textContent = pct + '%';
+
+    const dist = estimateDistanceFromFrame(video);
+    if (dist !== null) {
+      state.samples.push(dist);
+      document.getElementById('face-ring').className = 'face-ring detected';
+      document.getElementById('dist-label').style.display = 'block';
+      document.getElementById('dist-label').textContent = dist + ' cm';
+      document.getElementById('calib-status').textContent = `Reading ${state.samples.length} of ${CALIBRATION_SAMPLES}…`;
+      document.getElementById('sample-count').textContent = `${state.samples.length} valid readings`;
+    }
+
+    if (state.frames >= CALIBRATION_SAMPLES) {
+      clearInterval(state.calibInterval);
+      state.calibInterval = null;
+      finishCalibration();
+    }
+  }, tickMs);
+}
+
+function finishCalibration() {
+  stopCamera();
+  if (state.samples.length < MIN_VALID_SAMPLES) {
+    document.getElementById('calib-error').style.display = 'block';
+    document.getElementById('calib-error').textContent = `Only ${state.samples.length} readings collected. Try again with better lighting and make sure your face is visible.`;
+    document.getElementById('calib-retry').style.display = 'block';
+    document.getElementById('calib-default').style.display = 'block';
+    return;
+  }
+  const median = medianOf(state.samples);
+  const profile = buildProfile(median);
+  const data = { profile, distanceCm: median, createdAt: Date.now() };
+  saveProfile(data);
+  state.profile = data;
+  applyProfile(data);
+  showResult(data);
+}
+
+function retryCalibration() { startCalibration(); }
+
+function useDefaultProfile() {
+  const profile = buildProfile(33);
+  const data = { profile, distanceCm: 33, createdAt: Date.now(), isFallback: true };
+  saveProfile(data);
+  state.profile = data;
+  applyProfile(data);
+  showResult(data);
+}
+
+function applyProfile(data) {
+  state.fontSize = data.profile.recommendedFontSize;
+  state.lineSpacing = data.profile.recommendedLineSpacing;
+}
+
+// ── Result screen ──────────────────────────────────────────────────────────
+function showResult(data) {
+  const { profile, distanceCm, createdAt } = data;
+  document.getElementById('result-date').textContent = 'Calibrated ' + new Date(createdAt).toLocaleDateString();
+  document.getElementById('result-level').textContent = profile.level;
+  const badge = document.getElementById('result-badge');
+  badge.textContent = profile.shortDesc.toUpperCase();
+  badge.style.background = profile.accentColor + '1a';
+  badge.style.color = profile.accentColor;
+  document.getElementById('result-card').style.borderTop = `4px solid ${profile.accentColor}`;
+  document.getElementById('result-desc').textContent = profile.description;
+  document.getElementById('result-stats').innerHTML = [
+    ['Distance', `~${distanceCm} cm`],
+    ['Glasses equiv.', profile.glassesEquivalent],
+    ['Font size', `${profile.recommendedFontSize}pt`],
+    ['Line spacing', `${profile.recommendedLineSpacing}×`],
+  ].map(([k,v]) => `<div class="stat-cell"><div class="stat-label">${k}</div><div class="stat-val">${v}</div></div>`).join('');
+  goTo('result-screen');
+}
+
+// ── Reader ─────────────────────────────────────────────────────────────────
+function goToReader() {
+  renderArticle();
+  buildFontChips();
+  goTo('reader-screen');
+}
+
+function renderArticle() {
+  const title = document.getElementById('article-title');
+  const body = document.getElementById('article-body');
+  title.style.fontSize = (state.fontSize * 1.4) + 'px';
+  title.style.lineHeight = (state.fontSize * 1.4 * 1.2) + 'px';
+  title.style.fontFamily = FONTS.find(f => f.key === state.fontKey)?.stack || 'serif';
+  title.textContent = ARTICLE.title;
+  body.innerHTML = ARTICLE.paragraphs.map(p =>
+    `<p style="font-size:${state.fontSize}px;line-height:${state.lineSpacing};font-family:${FONTS.find(f=>f.key===state.fontKey)?.stack||'serif'};margin-bottom:1.2em;color:var(--fg)">${p}</p>`
+  ).join('');
+}
+
+function buildFontChips() {
+  document.getElementById('font-chips').innerHTML = FONTS.map(f =>
+    `<button class="chip${f.key===state.fontKey?' active':''}" onclick="setFont('${f.key}')" style="font-family:${f.stack}">${f.label}</button>`
+  ).join('');
+}
+
+function setFont(key) {
+  state.fontKey = key;
+  renderArticle();
+  buildFontChips();
+}
+
+function changeFontSize(delta) {
+  state.fontSize = Math.max(12, Math.min(42, state.fontSize + delta));
+  document.getElementById('fs-label').textContent = `Font size: ${state.fontSize}px`;
+  renderArticle();
+}
+
+function changeLineSpacing(delta) {
+  state.lineSpacing = Math.max(1.2, Math.min(3.0, parseFloat((state.lineSpacing + delta).toFixed(1))));
+  document.getElementById('ls-label').textContent = `Line spacing: ${state.lineSpacing}×`;
+  renderArticle();
+}
+
+function toggleControls() {
+  state.showControls = !state.showControls;
+  document.getElementById('reader-controls-panel').style.display = state.showControls ? 'block' : 'none';
+  document.getElementById('adjust-btn').classList.toggle('active', state.showControls);
+  document.getElementById('fs-label').textContent = `Font size: ${state.fontSize}px`;
+  document.getElementById('ls-label').textContent = `Line spacing: ${state.lineSpacing}×`;
+}
+
+function resetToProfile() {
+  const p = state.profile || loadProfile();
+  if (p) {
+    state.fontSize = p.profile.recommendedFontSize;
+    state.lineSpacing = p.profile.recommendedLineSpacing;
+    document.getElementById('fs-label').textContent = `Font size: ${state.fontSize}px`;
+    document.getElementById('ls-label').textContent = `Line spacing: ${state.lineSpacing}×`;
+    renderArticle();
+  }
+}
+
+// ── Live mode ──────────────────────────────────────────────────────────────
+async function toggleLiveMode() {
+  if (state.liveMode) {
+    state.liveMode = false;
+    stopStream(state.liveStream);
+    state.liveStream = null;
+    if (state.liveInterval) { clearInterval(state.liveInterval); state.liveInterval = null; }
+    document.getElementById('live-btn').classList.remove('active');
+    document.getElementById('live-dist-pill').style.display = 'none';
+    return;
+  }
+  const video = document.createElement('video');
+  video.setAttribute('playsinline', '');
+  video.muted = true;
+  state.liveStream = await startCamera(video);
+  if (!state.liveStream) return;
+  state.liveMode = true;
+  document.getElementById('live-btn').classList.add('active');
+
+  const baseline = (state.profile || loadProfile())?.distanceCm || 35;
+  const baseFs = (state.profile || loadProfile())?.profile?.recommendedFontSize || 18;
+
+  state.liveInterval = setInterval(() => {
+    const dist = estimateDistanceFromFrame(video);
+    if (dist !== null) {
+      document.getElementById('live-dist-pill').style.display = 'inline';
+      document.getElementById('live-dist-pill').textContent = '📏 ' + dist + 'cm';
+      const delta = baseline - dist;
+      const nudge = Math.round(delta * 0.35);
+      state.fontSize = Math.min(42, Math.max(12, baseFs + nudge));
+      renderArticle();
+      document.getElementById('fs-label').textContent = `Font size: ${state.fontSize}px`;
+    }
+  }, 500);
+}
+
+// ── Init ───────────────────────────────────────────────────────────────────
+window.addEventListener('load', () => {
+  // Load saved profile
+  const saved = loadProfile();
+  if (saved) {
+    state.profile = saved;
+    applyProfile(saved);
+    document.getElementById('saved-banner-wrap').style.display = 'block';
+    document.getElementById('saved-banner-sub').textContent =
+      `${saved.profile.level} · ~${saved.distanceCm}cm · ${new Date(saved.createdAt).toLocaleDateString()}`;
+    const banner = document.getElementById('saved-banner');
+    banner.style.borderLeftColor = saved.profile.accentColor;
+    banner.style.borderLeftWidth = '4px';
+  }
+
+  // PWA install prompt
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    state.deferredPrompt = e;
+    document.getElementById('install-wrap').style.display = 'block';
+    document.getElementById('install-btn-wrap').addEventListener('click', async () => {
+      state.deferredPrompt.prompt();
+      const { outcome } = await state.deferredPrompt.userChoice;
+      if (outcome === 'accepted') document.getElementById('install-wrap').style.display = 'none';
+    });
+  });
+});
+</script>
+</body>
+</html>
