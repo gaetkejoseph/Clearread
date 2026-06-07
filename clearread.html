@@ -370,6 +370,32 @@
     </div>
   </div>
 
+  <!-- ── MAGNIFIER ── -->
+  <div class="screen" id="magnifier-screen">
+    <div class="reader-header">
+      <span class="logo">ClearRead</span>
+      <div style="display:flex;gap:8px;align-items:center">
+        <span id="zoom-label" style="font-size:12px;color:var(--muted)">2×</span>
+        <button class="chip" id="mag-contrast-btn" onclick="toggleMagContrast()">Contrast</button>
+        <button class="chip" onclick="stopMagnifier();goTo('reader-screen')" style="border-color:var(--border)">✕</button>
+      </div>
+    </div>
+
+    <div style="flex:1;position:relative;overflow:hidden;background:#000">
+      <video id="mag-video" autoplay playsinline muted style="width:100%;height:100%;object-fit:cover;transform-origin:center center"></video>
+      <div id="mag-overlay" style="position:absolute;inset:0;pointer-events:none;display:flex;align-items:center;justify-content:center">
+        <div style="width:80%;height:2px;background:rgba(184,92,21,0.4);position:absolute;top:50%"></div>
+      </div>
+    </div>
+
+    <div style="background:var(--surface);border-top:1px solid var(--border);padding:14px 20px;display:flex;align-items:center;gap:12px;flex-shrink:0">
+      <button onclick="changeMagZoom(-0.5)" style="width:44px;height:44px;border-radius:50%;border:1.5px solid var(--border);background:transparent;font-size:22px;cursor:pointer;color:var(--fg);display:flex;align-items:center;justify-content:center">−</button>
+      <input type="range" id="zoom-slider" min="1" max="8" step="0.5" value="2" oninput="setMagZoom(this.value)" style="flex:1;accent-color:var(--accent)">
+      <button onclick="changeMagZoom(0.5)" style="width:44px;height:44px;border-radius:50%;border:1.5px solid var(--border);background:transparent;font-size:22px;cursor:pointer;color:var(--fg);display:flex;align-items:center;justify-content:center">+</button>
+      <button onclick="toggleMagFlash()" id="flash-btn" style="width:44px;height:44px;border-radius:50%;border:1.5px solid var(--border);background:transparent;font-size:20px;cursor:pointer">💡</button>
+    </div>
+  </div>
+
   <!-- ── READER ── -->
   <div class="screen" id="reader-screen">
     <div class="reader-header">
@@ -410,6 +436,7 @@
 
     <div class="reader-footer">
       <button class="btn" style="flex:1;padding:11px" onclick="goTo('result-screen')">My Profile</button>
+      <button class="btn btn-ghost" style="flex:1;padding:11px" onclick="startMagnifier()">📷 Magnify</button>
       <button class="btn btn-ghost" style="flex:1;padding:11px" onclick="startCalibration()">Recalibrate</button>
     </div>
   </div>
@@ -768,6 +795,83 @@ async function toggleLiveMode() {
       document.getElementById('fs-label').textContent = `Font size: ${state.fontSize}px`;
     }
   }, 500);
+}
+
+// ── Magnifier ──────────────────────────────────────────────────────────────
+let magStream = null;
+let magZoom = 2;
+let magContrast = false;
+let magFlash = false;
+
+async function startMagnifier() {
+  goTo('magnifier-screen');
+  const video = document.getElementById('mag-video');
+  try {
+    magStream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } },
+      audio: false,
+    });
+    video.srcObject = magStream;
+    await video.play();
+  } catch(e) {
+    alert('Camera not available');
+    goTo('reader-screen');
+    return;
+  }
+  setMagZoom(magZoom);
+  // Apply profile contrast
+  const p = state.profile || loadProfile();
+  if (p && p.profile.recommendedContrast > 100) {
+    magContrast = true;
+    document.getElementById('mag-contrast-btn').classList.add('active');
+    applyMagFilters();
+  }
+}
+
+function stopMagnifier() {
+  if (magStream) { magStream.getTracks().forEach(t => t.stop()); magStream = null; }
+  const video = document.getElementById('mag-video');
+  video.srcObject = null;
+  // Turn off flash if on
+  if (magFlash) toggleMagFlash();
+}
+
+function setMagZoom(val) {
+  magZoom = parseFloat(val);
+  document.getElementById('zoom-slider').value = magZoom;
+  document.getElementById('zoom-label').textContent = magZoom.toFixed(1) + '×';
+  document.getElementById('mag-video').style.transform = `scale(${magZoom})`;
+}
+
+function changeMagZoom(delta) {
+  setMagZoom(Math.max(1, Math.min(8, magZoom + delta)));
+}
+
+function applyMagFilters() {
+  const video = document.getElementById('mag-video');
+  const contrast = magContrast ? 180 : 100;
+  const brightness = magContrast ? 110 : 100;
+  video.style.filter = `contrast(${contrast}%) brightness(${brightness}%)`;
+}
+
+function toggleMagContrast() {
+  magContrast = !magContrast;
+  document.getElementById('mag-contrast-btn').classList.toggle('active', magContrast);
+  applyMagFilters();
+}
+
+async function toggleMagFlash() {
+  if (!magStream) return;
+  const track = magStream.getVideoTracks()[0];
+  if (!track) return;
+  try {
+    magFlash = !magFlash;
+    await track.applyConstraints({ advanced: [{ torch: magFlash }] });
+    document.getElementById('flash-btn').style.opacity = magFlash ? '1' : '0.5';
+  } catch(e) {
+    // Torch not supported on this device
+    document.getElementById('flash-btn').style.opacity = '0.3';
+  }
 }
 
 // ── Init ───────────────────────────────────────────────────────────────────
